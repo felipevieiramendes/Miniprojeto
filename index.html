@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projeto Transf 2D - Sistema Solar Final</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050505; color: white; font-family: sans-serif; }
+        canvas { display: block; }
+        .ui { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; pointer-events: none; z-index: 10; }
+        .ui h2 { margin: 0 0 5px 0; font-size: 18px; color: #4af; }
+        .ui p { margin: 0; font-size: 13px; opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <div class="ui">
+        <h2>Sistema Solar</h2>
+        <p>Setas: Mover | Espaço: Turbo | Shift: Inverter Direção (Girar 180°)</p>
+    </div>
+    <canvas id="meuCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('meuCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let tempo = 0;
+        let nave = { x: 100, y: 100, angulo: 0, escala: 1 };
+        let cometaX = -100; 
+        let teclasPressionadas = {};
+
+        function ajustarTela() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', ajustarTela);
+        ajustarTela();
+
+        window.addEventListener('keydown', (e) => { 
+            teclasPressionadas[e.key] = true; 
+            if (e.key === ' ') nave.escala = 1.4;
+            
+            // REQUISITO BÔNUS: Reflexão/Giro via Shift
+            // Ao apertar Shift, somamos PI (180 graus) ao ângulo atual
+            if (e.key === 'Shift') {
+                nave.angulo += Math.PI; 
+            }
+        });
+
+        window.addEventListener('keyup', (e) => { 
+            teclasPressionadas[e.key] = false; 
+            if (e.key === ' ') nave.escala = 1;
+        });
+
+        function atualizarNave() {
+            let dx = 0;
+            let dy = 0;
+            let velAtual = teclasPressionadas[' '] ? 10 : 5;
+
+            if (teclasPressionadas['ArrowUp'])    dy -= 1;
+            if (teclasPressionadas['ArrowDown'])  dy += 1;
+            if (teclasPressionadas['ArrowLeft'])  dx -= 1;
+            if (teclasPressionadas['ArrowRight']) dx += 1;
+
+            // Atualiza ângulo apenas se houver movimento das setas
+            if (dx !== 0 || dy !== 0) {
+                nave.angulo = Math.atan2(dy, dx);
+                nave.x += dx * velAtual;
+                nave.y += dy * velAtual;
+            }
+
+            nave.x = Math.max(0, Math.min(canvas.width, nave.x));
+            nave.y = Math.max(0, Math.min(canvas.height, nave.y));
+        }
+
+        function desenharCena() {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = "rgba(5, 5, 5, 0.2)"; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            atualizarNave();
+            desenharEstrelas();
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // --- ÓRBITAS ---
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+            [110, 190, 280, 380].forEach(raio => {
+                ctx.beginPath(); ctx.arc(cx, cy, raio, 0, Math.PI * 2); ctx.stroke();
+            });
+
+            // --- 1. SOL (Escala) ---
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(1 + Math.sin(tempo*2)*0.04, 1 + Math.sin(tempo*2)*0.04);
+            ctx.fillStyle = "#ffcc00";
+            ctx.shadowBlur = 25; ctx.shadowColor = "orange";
+            ctx.beginPath(); ctx.arc(0, 0, 55, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+
+            // --- 2. MERCÚRIO ---
+            ctx.save();
+            ctx.translate(cx, cy); ctx.rotate(tempo * 1.5); ctx.translate(110, 0);  
+            ctx.fillStyle = "#999"; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+
+            // --- 3. TERRA (Hierarquia) ---
+            ctx.save();
+            ctx.translate(cx, cy); ctx.rotate(tempo * 0.6); ctx.translate(190, 0);   
+            ctx.fillStyle = "#4488ff"; ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.save(); ctx.rotate(tempo); ctx.fillStyle = "#2a2";
+            ctx.beginPath(); ctx.arc(-6, -4, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(5, 6, 5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+            ctx.save(); ctx.rotate(tempo * 2.5); ctx.translate(35, 0);
+            ctx.fillStyle = "#ccc"; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.restore(); 
+            ctx.restore();
+
+            // --- 4. MARTE (Luas) ---
+            ctx.save();
+            ctx.translate(cx, cy); ctx.rotate(tempo * 0.4); ctx.translate(280, 0);   
+            ctx.fillStyle = "#e54"; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#888";
+            ctx.save(); ctx.rotate(tempo * 3); ctx.translate(25, 0); ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+            ctx.save(); ctx.rotate(tempo * 1.2); ctx.translate(32, 0); ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+            ctx.restore();
+
+            // --- 5. SATURNO (Anel com Escala Não-Uniforme) ---
+            ctx.save();
+            ctx.translate(cx, cy); ctx.rotate(tempo * 0.25); ctx.translate(380, 0); 
+            ctx.fillStyle = "#db8"; ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill();
+            ctx.save(); ctx.scale(1, 0.4); ctx.strokeStyle = "rgba(200,180,150,0.7)"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(0, 0, 35, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+            ctx.restore();
+
+            // --- 6. COMETA LINEAR (Cisalhamento) ---
+            ctx.save();
+            cometaX += 3; 
+            if (cometaX > canvas.width + 200) cometaX = -200;
+            ctx.translate(cometaX, 80); 
+            ctx.transform(1, 0, -0.5, 1, 0, 0); 
+            let grad = ctx.createLinearGradient(0, 0, -100, 0);
+            grad.addColorStop(0, "rgba(200, 255, 255, 0.5)");
+            grad.addColorStop(1, "transparent");
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-100, -8); ctx.lineTo(-100, 8); ctx.fill();
+            ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+
+            desenharNave();
+            tempo += 0.01;
+            requestAnimationFrame(desenharCena);
+        }
+
+        function desenharEstrelas() {
+            ctx.fillStyle = "white";
+            for(let i=0; i<60; i++) {
+                let x = (Math.sin(i * 123) * 0.5 + 0.5) * canvas.width;
+                let y = (Math.cos(i * 456) * 0.5 + 0.5) * canvas.height;
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
+
+        function desenharNave() {
+            ctx.save();
+            // Ordem das Transformações: Translação -> Escala -> Rotação
+            ctx.translate(nave.x, nave.y);
+            ctx.scale(nave.escala, nave.escala);
+            ctx.rotate(nave.angulo);
+
+            // Desenho da Nave (Triângulo)
+            ctx.fillStyle = "#f44";
+            ctx.beginPath();
+            ctx.moveTo(18, 0);    
+            ctx.lineTo(-12, -12); 
+            ctx.lineTo(-12, 12);  
+            ctx.closePath();
+            ctx.fill();
+
+            // Propulsor (Turbo)
+            if(nave.escala > 1) {
+                ctx.fillStyle = "orange";
+                ctx.beginPath();
+                ctx.moveTo(-12, 0);
+                ctx.lineTo(-35, 0);
+                ctx.lineTo(-12, 6);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        desenharCena();
+    </script>
+</body>
+</html>
